@@ -32,6 +32,6 @@ fclean: clean
 	$(RM) -r $(NAME)
 
 re: fclean
-	$(MAKE)
+	$(MAKE) -j4
 
 .PHONY: fclean clean re all

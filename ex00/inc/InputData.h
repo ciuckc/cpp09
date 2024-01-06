@@ -18,8 +18,7 @@ class InputData {
   void parseFilename(const char* file_name) const;
   bool parseDate(const std::string& date) const;
   bool parseValue(const std::string& value) const;
-  void printResult(const PriceHistory& history, const std::string& date,
-                   const std::string& value) const;
+  void printResult(const PriceHistory& history, const std::string& date, const std::string& value) const;
 
   std::ifstream file_{};
 };

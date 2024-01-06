@@ -20,8 +20,7 @@ std::chrono::year_month_day strtoymd(const std::string& date) {
   std::array<int, 3> ymd = {};
 
   date_stream >> ymd[0] >> delim >> ymd[1] >> delim >> ymd[2];
-  std::chrono::year_month_day date_obj{std::chrono::year(ymd[0]),
-                                       std::chrono::month(ymd[1]),
+  std::chrono::year_month_day date_obj{std::chrono::year(ymd[0]), std::chrono::month(ymd[1]),
                                        std::chrono::day(ymd[2])};
   return date_obj;
 }
@@ -36,16 +35,14 @@ InputData::InputData(const char* file_name) : file_(file_name) {
 void InputData::parseFilename(const char* file_name) const {
   std::string_view file_name_view{file_name};
 
-  if (file_name_view.size() < 5 ||
-      file_name_view.compare(file_name_view.size() - 4, 4, ".txt")) {
+  if (file_name_view.size() < 5 || !file_name_view.ends_with(".txt")) {
     throw std::runtime_error("Invalid file extension [.txt]!");
   }
 }
 
 void InputData::repl(const PriceHistory& history) {
   std::string line{};
-  auto&& file = this->file_;
-  (void)history;
+  auto& file = this->file_;
 
   std::getline(file, line, '\n');
   if (file.fail() && !file.eof()) {
@@ -56,6 +53,7 @@ void InputData::repl(const PriceHistory& history) {
   if (line != "date | value") {
     throw std::runtime_error("Bad header in input file!l");
   }
+
   while (true) {
     std::getline(file, line, '\n');
     if (file.fail() && !file.eof()) {
@@ -70,11 +68,14 @@ void InputData::repl(const PriceHistory& history) {
     }
     std::string date = line.substr(0, separator);
     if (parseDate(date) == false) {
-      std::cerr << "Error: Bad input => " << date << '\n';
+      std::cerr << "Error: Bad input date => " << date << '\n';
       continue;
     }
     std::string value = line.substr(separator + 3, line.size());
-    if (parseValue(value) == false) {
+    if (value.empty()) {
+      std::cerr << "Error: Missing value\n";
+      continue;
+    } else if (parseValue(value) == false) {
       continue;
     }
     printResult(history, date, value);
@@ -84,11 +85,15 @@ void InputData::repl(const PriceHistory& history) {
 bool InputData::parseDate(const std::string& date) const {
   std::stringstream date_stream{std::string{date}};
   std::array<char, 2> delim = {};
-  enum YmdIndex : int { YEAR = 0, MONTH, DAY, SIZE };
+  enum YmdIndex : int {
+    YEAR = 0,
+    MONTH,
+    DAY,
+    SIZE
+  };
   std::array<int, YmdIndex::SIZE> ymd = {};
 
-  date_stream >> ymd[YmdIndex::YEAR] >> delim[0] >> ymd[YmdIndex::MONTH] >>
-      delim[1] >> ymd[YmdIndex::DAY];
+  date_stream >> ymd[YmdIndex::YEAR] >> delim[0] >> ymd[YmdIndex::MONTH] >> delim[1] >> ymd[YmdIndex::DAY];
   if (date_stream.fail() || delim[0] != '-' || delim[1] != '-') {
     return false;
   }
@@ -98,7 +103,7 @@ bool InputData::parseDate(const std::string& date) const {
   if (date_obj.ok() == false) {
     return false;
   }
-  return true;
+  return date_obj.ok();
 }
 
 bool InputData::parseValue(const std::string& value) const {
@@ -120,8 +125,7 @@ bool InputData::parseValue(const std::string& value) const {
   return true;
 }
 
-void InputData::printResult(const PriceHistory& history,
-                            const std::string& date,
+void InputData::printResult(const PriceHistory& history, const std::string& date,
                             const std::string& value) const {
   std::chrono::year_month_day ymd = util::strtoymd(date);
   float coins = std::strtof(value.c_str(), nullptr);
@@ -131,8 +135,8 @@ void InputData::printResult(const PriceHistory& history,
   }
   auto opt = history.getData(ymd);
   if (opt.has_value()) {
-    std::cout << date << " => " << value << " = "
-              << coins * std::strtof(opt.value().c_str(), nullptr) << '\n';
+    std::cout << date << " => " << value << " = " << coins * std::strtof(opt.value().c_str(), nullptr)
+              << '\n';
     return;
   }
   std::cerr << "Error: Bad operation!\n";

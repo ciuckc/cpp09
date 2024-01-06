@@ -11,7 +11,8 @@ int main(int argc, char** argv) {
     std::exit(1);
   }
   try {
-    PriceHistory history_data("data.csv");
+    constexpr const char* data_filename = "data.csv";
+    PriceHistory history_data(data_filename);
     InputData input_data(argv[1]);
     input_data.repl(history_data);
   } catch (const std::runtime_error& e) {

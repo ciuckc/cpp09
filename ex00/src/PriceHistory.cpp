@@ -3,14 +3,14 @@
 #include <array>
 #include <chrono>
 #include <ios>
+#include <iostream>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
-PriceHistory::PriceHistory(const char* file_name)
-    : data_map_{}, file_{file_name} {
+PriceHistory::PriceHistory(const char* file_name) : data_map_{}, file_{file_name} {
   this->parseFilename(file_name);
   if (file_.is_open() == false) {
     throw std::runtime_error("Couldn't open input file!");
@@ -34,23 +34,19 @@ PriceHistory::HistoryMap::const_iterator PriceHistory::end() const {
   return data_map_.end();
 }
 
-bool PriceHistory::addData(const std::chrono::year_month_day& key,
-                           const std::string& value) {
+bool PriceHistory::addData(const std::chrono::year_month_day& key, const std::string& value) {
   return data_map_.insert(std::make_pair(key, value)).second;
 }
 
-bool PriceHistory::addData(std::chrono::year_month_day&& key,
-                           std::string&& value) {
-  return data_map_.insert(std::make_pair(std::move(key), std::move(value)))
-      .second;
+bool PriceHistory::addData(std::chrono::year_month_day&& key, std::string&& value) {
+  return data_map_.insert(std::make_pair(std::move(key), std::move(value))).second;
 }
 
 bool PriceHistory::empty() const {
   return this->data_map_.empty();
 }
 
-std::optional<std::string> PriceHistory::getData(
-    const std::chrono::year_month_day& key) const {
+std::optional<std::string> PriceHistory::getData(const std::chrono::year_month_day& key) const {
   auto it = data_map_.lower_bound(key);
   if (it == data_map_.end()) {
     return std::prev(it)->second;
@@ -64,8 +60,7 @@ std::optional<std::string> PriceHistory::getData(
 void PriceHistory::parseFilename(const char* file_name) const {
   std::string_view file_name_view{file_name};
 
-  if (file_name_view.size() < 5 ||
-      file_name_view.compare(file_name_view.size() - 4, 4, ".csv")) {
+  if (file_name_view.size() < 5 || file_name_view.compare(file_name_view.size() - 4, 4, ".csv")) {
     throw std::runtime_error("Invalid file extension [.csv]!");
   }
 }
@@ -97,7 +92,14 @@ void PriceHistory::parse() {
     std::string date = line.substr(0, separator);
     std::chrono::year_month_day ymd = parseDate(date);
     std::string value = line.substr(separator + 1, line.size());
-    parseValue(value);
+
+    if (value.empty()) {
+      throw std::runtime_error("Value is missing!");
+    }
+    if (parseValue(value) == false) {
+      auto err_str = std::format("Error while parsing value [{}]!", value);
+      throw std::runtime_error(err_str.data());
+    }
     if (addData(std::move(ymd), std::move(value)) == false) {
       throw std::runtime_error("Error while inserting [key,value] pair!");
     }
@@ -107,20 +109,23 @@ void PriceHistory::parse() {
   }
 }
 
-std::chrono::year_month_day PriceHistory::parseDate(
-    const std::string& date) const {
+std::chrono::year_month_day PriceHistory::parseDate(const std::string& date) const {
   std::stringstream date_stream{std::string{date}};
   std::array<char, 2> delim = {};
-  enum YmdIndex : int { YEAR = 0, MONTH, DAY, SIZE };
+
+  enum YmdIndex : int {
+    YEAR = 0,
+    MONTH,
+    DAY,
+    SIZE
+  };
   std::array<int, YmdIndex::SIZE> ymd = {};
 
-  date_stream >> ymd[YmdIndex::YEAR] >> delim[0] >> ymd[YmdIndex::MONTH] >>
-      delim[1] >> ymd[YmdIndex::DAY];
+  date_stream >> ymd[YmdIndex::YEAR] >> delim[0] >> ymd[YmdIndex::MONTH] >> delim[1] >> ymd[YmdIndex::DAY];
   if (date_stream.fail() || delim[0] != '-' || delim[1] != '-') {
     throw std::runtime_error("Invalid date format!");
   }
-  std::chrono::year_month_day date_obj{std::chrono::year(ymd[0]),
-                                       std::chrono::month(ymd[1]),
+  std::chrono::year_month_day date_obj{std::chrono::year(ymd[0]), std::chrono::month(ymd[1]),
                                        std::chrono::day(ymd[2])};
   if (date_obj.ok() == false) {
     throw std::runtime_error("Invalid date!");
@@ -128,11 +133,13 @@ std::chrono::year_month_day PriceHistory::parseDate(
   return date_obj;
 }
 
-void PriceHistory::parseValue(const std::string& value) const {
+bool PriceHistory::parseValue(const std::string& value) const {
   std::stringstream value_stream{std::string(value)};
-  float price{};
+  double price{};
   value_stream >> price;
-  if (value_stream.fail()) {
-    throw std::runtime_error("Invalid value!");
+
+  if (value_stream.fail() || price < 0) {
+    return false;
   }
+  return true;
 }
